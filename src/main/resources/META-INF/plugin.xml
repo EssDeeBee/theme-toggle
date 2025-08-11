@@ -7,7 +7,7 @@ This plugin adds a convenient toolbar button and keyboard shortcut to instantly 
 It is designed for quick theme changes without opening settings, improving workflow and visual comfort for developers.
 ]]>
     </description>
-
+    <version>0.0.1</version>
     <depends>com.intellij.modules.platform</depends>
 
     <actions>
