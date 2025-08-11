@@ -1,0 +1,22 @@
+<idea-plugin>
+    <id>com.essdeebee.theme-toggle</id>
+    <name>Theme Toggle</name>
+    <vendor email="dzeboevsb@gmail.com">You</vendor>
+    <description><![CDATA[
+This plugin adds a convenient toolbar button and keyboard shortcut to instantly switch between light and dark themes in IntelliJ IDEA.
+It is designed for quick theme changes without opening settings, improving workflow and visual comfort for developers.
+]]>
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <actions>
+        <action id="ThemeToggleAction"
+                class="com.essdeebee.ThemeToggleAction"
+                text="Toggle Light/Dark Theme"
+                description="Switch between light and dark themes">
+            <add-to-group group-id="MainToolbarRight" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt T"/>
+        </action>
+    </actions>
+</idea-plugin>
