@@ -14,84 +14,110 @@ class ThemeToggleAction : AnAction(), DumbAware {
 
     override fun actionPerformed(e: AnActionEvent) {
         val lafManager = LafManager.getInstance()
+        val targetTheme = findOppositeTheme(lafManager) ?: return
 
-        val current = lafManager.currentUIThemeLookAndFeel
-        val currentIsDark = (current as? UIThemeLookAndFeelInfo)?.isDark ?: false
+        applyTheme(lafManager, targetTheme)
+        applyMatchingEditorScheme(targetTheme.isDark)
+    }
 
-        val installedThemes = lafManager.installedLookAndFeels
-            .mapNotNull { it as? UIThemeLookAndFeelInfo }
+    private fun findOppositeTheme(lafManager: LafManager): UIThemeLookAndFeelInfo? {
+        val currentIsDark = lafManager.currentUIThemeLookAndFeel?.isDark ?: false
 
-        // Pick the opposite darkness
-        val target = installedThemes.firstOrNull { it.isDark != currentIsDark } ?: return
+        return lafManager.installedLookAndFeels
+            .filterIsInstance<UIThemeLookAndFeelInfo>()
+            .firstOrNull { it.isDark != currentIsDark }
+    }
 
-        // --- Switch Look & Feel (theme), tolerate API diffs ---
+    private fun applyTheme(lafManager: LafManager, targetTheme: UIThemeLookAndFeelInfo) {
         val lmClass = lafManager.javaClass
         val uiThemeClass = UIThemeLookAndFeelInfo::class.java
 
         val themeInvoked = runCatching {
             lmClass.getMethod("setCurrentLookAndFeel", uiThemeClass, java.lang.Boolean.TYPE)
-                .invoke(lafManager, target, true)
+                .invoke(lafManager, targetTheme, true)
         }.recoverCatching {
             lmClass.getMethod("setCurrentLookAndFeel", uiThemeClass)
-                .invoke(lafManager, target)
+                .invoke(lafManager, targetTheme)
         }.isSuccess
 
-        runCatching { lmClass.getMethod("updateUI").invoke(lafManager) }
+        updateUi(lafManager)
 
         if (!themeInvoked) {
-            (target as? UIManager.LookAndFeelInfo)?.let { plain ->
-                runCatching {
-                    lmClass.getMethod("setCurrentLookAndFeel", UIManager.LookAndFeelInfo::class.java)
-                        .invoke(lafManager, plain)
-                    lmClass.getMethod("updateUI").invoke(lafManager)
-                }
-            }
-        }
-
-        // --- Match the editor color scheme darkness to the chosen theme ---
-        val colorsManager = EditorColorsManager.getInstance()
-        val allSchemes: Array<EditorColorsScheme> =
-            runCatching { colorsManager.allSchemes }.getOrElse { colorsManager.getAllSchemes() }
-
-        val currentScheme = colorsManager.globalScheme
-
-        val preferredNames = if (target.isDark)
-            listOf("Darcula", "One Dark", "Dark", "High contrast")
-        else
-            listOf("IntelliJ Light", "Default", "Light")
-
-        val preferredMatch = allSchemes.firstOrNull { s ->
-            isDarkSchemeCompat(s) == target.isDark &&
-                    preferredNames.any { pn -> s.name.contains(pn, ignoreCase = true) }
-        }
-
-        val anyMatchingDarkness = preferredMatch
-            ?: allSchemes.firstOrNull { s ->
-                isDarkSchemeCompat(s) == target.isDark && s.name != currentScheme.name
-            }
-
-        val schemeToApply = anyMatchingDarkness
-        if (schemeToApply != null && schemeToApply.name != currentScheme.name) {
-            ApplicationManager.getApplication().invokeLater {
-                // Use reflection to support SDKs where globalScheme isn't a 'var'
-                runCatching {
-                    colorsManager.javaClass.getMethod(
-                        "setGlobalScheme",
-                        EditorColorsScheme::class.java
-                    ).invoke(colorsManager, schemeToApply)
-                }
+            (targetTheme as? UIManager.LookAndFeelInfo)?.let { plainTheme ->
+                applyPlainLookAndFeel(lafManager, plainTheme)
             }
         }
     }
 
-    private fun isDarkSchemeCompat(s: EditorColorsScheme): Boolean {
-        // Try EditorColorsScheme.isDark() if present; otherwise fall back to name heuristics
+    private fun applyPlainLookAndFeel(
+        lafManager: LafManager,
+        targetTheme: UIManager.LookAndFeelInfo,
+    ) {
+        runCatching {
+            lafManager.javaClass
+                .getMethod("setCurrentLookAndFeel", UIManager.LookAndFeelInfo::class.java)
+                .invoke(lafManager, targetTheme)
+        }
+
+        updateUi(lafManager)
+    }
+
+    private fun updateUi(lafManager: LafManager) {
+        runCatching { lafManager.javaClass.getMethod("updateUI").invoke(lafManager) }
+    }
+
+    private fun applyMatchingEditorScheme(targetIsDark: Boolean) {
+        val colorsManager = EditorColorsManager.getInstance()
+        val scheme = findMatchingEditorScheme(colorsManager, targetIsDark) ?: return
+
+        if (scheme.name == colorsManager.globalScheme.name) return
+
+        ApplicationManager.getApplication().invokeLater {
+            runCatching {
+                colorsManager.javaClass
+                    .getMethod("setGlobalScheme", EditorColorsScheme::class.java)
+                    .invoke(colorsManager, scheme)
+            }
+        }
+    }
+
+    private fun findMatchingEditorScheme(
+        colorsManager: EditorColorsManager,
+        targetIsDark: Boolean,
+    ): EditorColorsScheme? {
+        val allSchemes = getAllSchemes(colorsManager)
+        val currentScheme = colorsManager.globalScheme
+        val preferredNames = preferredNames(targetIsDark)
+
+        return allSchemes.firstOrNull { scheme ->
+            scheme.matchesDarkness(targetIsDark) && preferredNames.any { preferredName ->
+                scheme.name.contains(preferredName, ignoreCase = true)
+            }
+        } ?: allSchemes.firstOrNull { scheme ->
+            scheme.matchesDarkness(targetIsDark) && scheme.name != currentScheme.name
+        }
+    }
+
+    private fun getAllSchemes(colorsManager: EditorColorsManager): Array<EditorColorsScheme> =
+        runCatching { colorsManager.allSchemes }.getOrElse { colorsManager.getAllSchemes() }
+
+    private fun preferredNames(isDark: Boolean): List<String> =
+        if (isDark) {
+            listOf("Darcula", "One Dark", "Dark", "High contrast")
+        } else {
+            listOf("IntelliJ Light", "Default", "Light")
+        }
+
+    private fun EditorColorsScheme.matchesDarkness(isDark: Boolean): Boolean =
+        isDarkSchemeCompat() == isDark
+
+    private fun EditorColorsScheme.isDarkSchemeCompat(): Boolean {
         return try {
-            val m = s.javaClass.methods.firstOrNull { it.name == "isDark" && it.parameterCount == 0 }
-            val viaApi = (m?.invoke(s) as? Boolean)
-            viaApi ?: nameLooksDark(s.name)
+            val isDarkMethod = javaClass.methods.firstOrNull { it.name == "isDark" && it.parameterCount == 0 }
+            val isDark = isDarkMethod?.invoke(this) as? Boolean
+            isDark ?: nameLooksDark(name)
         } catch (_: Throwable) {
-            nameLooksDark(s.name)
+            nameLooksDark(name)
         }
     }
 

@@ -1,6 +1,6 @@
 plugins {
-    id("org.jetbrains.intellij.platform") version "2.7.0"
-    kotlin("jvm") version "2.2.0"
+    id("org.jetbrains.intellij.platform") version "2.10.5"
+    kotlin("jvm") version "2.3.21"
 }
 
 repositories {
@@ -10,10 +10,20 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity("2025.2")
+        intellijIdea("2026.1.2")
     }
+
+    testImplementation(kotlin("test"))
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+tasks.named("buildSearchableOptions") {
+    enabled = false
 }
