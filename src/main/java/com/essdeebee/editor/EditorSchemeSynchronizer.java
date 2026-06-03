@@ -1,4 +1,4 @@
-package com.essdeebee;
+package com.essdeebee.editor;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
@@ -9,22 +9,29 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Consumer;
 
-final class EditorSchemeSynchronizer {
+public final class EditorSchemeSynchronizer {
     private final EditorColorsManager colorsManager;
+    private final Consumer<Runnable> invokeLater;
 
-    EditorSchemeSynchronizer(EditorColorsManager colorsManager) {
-        this.colorsManager = colorsManager;
+    public EditorSchemeSynchronizer(EditorColorsManager colorsManager) {
+        this(colorsManager, runnable -> ApplicationManager.getApplication().invokeLater(runnable));
     }
 
-    void apply(boolean targetIsDark) {
+    EditorSchemeSynchronizer(EditorColorsManager colorsManager, Consumer<Runnable> invokeLater) {
+        this.colorsManager = colorsManager;
+        this.invokeLater = invokeLater;
+    }
+
+    public void apply(boolean targetIsDark) {
         Optional<EditorColorsScheme> scheme = findMatchingScheme(targetIsDark);
 
         if (scheme.isEmpty() || scheme.get().getName().equals(colorsManager.getGlobalScheme().getName())) {
             return;
         }
 
-        ApplicationManager.getApplication().invokeLater(() -> setGlobalScheme(scheme.get()));
+        invokeLater.accept(() -> setGlobalScheme(scheme.get()));
     }
 
     private Optional<EditorColorsScheme> findMatchingScheme(boolean targetIsDark) {
@@ -32,14 +39,15 @@ final class EditorSchemeSynchronizer {
         EditorColorsScheme currentScheme = colorsManager.getGlobalScheme();
         List<String> preferredNames = preferredNames(targetIsDark);
 
-        Optional<EditorColorsScheme> preferredMatch = Arrays.stream(allSchemes)
-                .filter(scheme -> matchesDarkness(scheme, targetIsDark))
-                .filter(scheme -> preferredNames.stream()
-                        .anyMatch(name -> containsIgnoreCase(scheme.getName(), name)))
-                .findFirst();
+        for (String preferredName : preferredNames) {
+            Optional<EditorColorsScheme> preferredMatch = Arrays.stream(allSchemes)
+                    .filter(scheme -> matchesDarkness(scheme, targetIsDark))
+                    .filter(scheme -> containsIgnoreCase(scheme.getName(), preferredName))
+                    .findFirst();
 
-        if (preferredMatch.isPresent()) {
-            return preferredMatch;
+            if (preferredMatch.isPresent()) {
+                return preferredMatch;
+            }
         }
 
         return Arrays.stream(allSchemes)

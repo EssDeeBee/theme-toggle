@@ -1,4 +1,4 @@
-package com.essdeebee;
+package com.essdeebee.editor;
 
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
 
