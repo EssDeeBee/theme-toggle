@@ -19,5 +19,6 @@
                   fill="#4e4f52"/>
         </g>
     </g>
+
     <circle cx="8" cy="8" r="6.5" fill="none" stroke="#4e4f52" stroke-width="1"/>
 </svg>
