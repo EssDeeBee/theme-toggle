@@ -7,14 +7,15 @@ This plugin adds a convenient toolbar button and keyboard shortcut to instantly 
 It is designed for quick theme changes without opening settings, improving workflow and visual comfort for developers.
 ]]>
     </description>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
     <depends>com.intellij.modules.platform</depends>
 
     <actions>
         <action id="ThemeToggleAction"
-                class="com.essdeebee.ThemeToggleAction"
+                class="com.essdeebee.action.ThemeToggleAction"
                 text="Toggle Light/Dark Theme"
-                description="Switch between light and dark themes">
+                description="Switch between light and dark themes"
+                icon="/icons/themeToggle.svg">
             <add-to-group group-id="MainToolbarRight" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt T"/>
         </action>

@@ -5,10 +5,7 @@ build/
 !**/src/test/**/build/
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+.idea/
 .intellijPlatform/
 *.iws
 *.iml
@@ -16,9 +13,6 @@ build/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
-
-### Kotlin ###
-.kotlin
 
 ### Eclipse ###
 .apt_generated
